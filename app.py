@@ -280,4 +280,9 @@ def admin():
 
 # ── Start ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=None)
+    args = parser.parse_args()
+    port = args.port if args.port else PORT
+    app.run(host="0.0.0.0", port=port, debug=False)
