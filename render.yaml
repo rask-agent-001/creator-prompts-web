@@ -1,0 +1,25 @@
+services:
+  - name: creator-prompts-web
+    plan: free
+    region: oregon
+    runtime: python
+    buildCommand: pip install flask gunicorn
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: SECRET_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: NOTION_TOKEN
+        sync: false
+      - key: NOTION_TEMPLATE_LINK
+        value: "https://www.notion.so/39221620b5ab816e93aeea319b5eba98"
+      - key: TIKTOK_PACK_LINK
+        value: "https://bonsabster.gumroad.com/l/dwswu"
+      - key: YOUTUBE_PACK_LINK
+        value: "https://bonsabster.gumroad.com/l/zogyka"
+      - key: BUNDLE_LINK
+        value: "https://bonsabster.gumroad.com/l/udogc"
