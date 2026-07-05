@@ -1,0 +1,24 @@
+name: Wake Studio
+
+on:
+  repository_dispatch:
+    types: [studio_went_to_sleep]
+
+  # Fallback: every 3 hours as a safety net in case on_stop.sh misses
+  schedule:
+    - cron: '0 */3 * * *'
+
+jobs:
+  wake-studio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for studio to fully shut down
+        run: |
+          echo "Waiting 60 seconds for studio shutdown..."
+          sleep 60
+          echo "Done waiting."
+
+      - name: Wake the Lightning AI Studio
+        run: |
+          echo "Waking studio at: ${{ vars.STUDIO_PUBLIC_URL }}"
+          curl -s -o /dev/null -w "HTTP %{http_code}" --max-time 30 "${{ vars.STUDIO_PUBLIC_URL }}"
