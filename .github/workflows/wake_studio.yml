@@ -4,7 +4,6 @@ on:
   repository_dispatch:
     types: [studio_went_to_sleep]
 
-  # Fallback: every 3 hours as a safety net in case on_stop.sh misses
   schedule:
     - cron: '0 */3 * * *'
 
@@ -13,12 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for studio to fully shut down
-        run: |
-          echo "Waiting 60 seconds for studio shutdown..."
-          sleep 60
-          echo "Done waiting."
+        run: sleep 60
 
-      - name: Wake the Lightning AI Studio
+      - name: Install lightning-sdk and wake studio
+        env:
+          LIGHTNING_USER_ID: ${{ secrets.LIGHTNING_USER_ID }}
+          LIGHTNING_API_KEY: ${{ secrets.LIGHTNING_API_KEY }}
         run: |
-          echo "Waking studio at: ${{ vars.STUDIO_PUBLIC_URL }}"
-          curl -s -o /dev/null -w "HTTP %{http_code}" --max-time 30 "${{ vars.STUDIO_PUBLIC_URL }}"
+          pip install lightning-sdk
+          python3 -c "
+            import os
+            import lightning_sdk
+
+            os.environ['LIGHTNING_USER_ID'] = '${{ secrets.LIGHTNING_USER_ID }}'
+            os.environ['LIGHTNING_API_KEY'] = '${{ secrets.LIGHTNING_API_KEY }}'
+
+            studio = lightning_sdk.Studio(name='hermes-1')
+            studio.start()
+            print('Studio wake command sent.')
+          "
