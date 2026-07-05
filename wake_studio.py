@@ -1,14 +1,18 @@
 import os
-import lightning_sdk
+from lightning_sdk.studio import StudioApi
+from lightning_sdk.machine import Machine
 
-user_id = os.environ.get("LIGHTNING_USER_ID", "")
-api_key = os.environ.get("LIGHTNING_API_KEY", "")
+# StudioApi uses LIGHTNING_API_KEY env var for auth
+# LIGHTNING_USER_ID env var is also read by the Auth class
 
-os.environ["LIGHTNING_USER_ID"] = user_id
-os.environ["LIGHTNING_API_KEY"] = api_key
+STUDIO_ID = "01kw59txn0zjg816bff2x4r07k"
+TEAMSPACE_ID = "01knbb9vda4z2m3c03apedr3ky"
 
-# teamspace is the Lightning AI project/teamspace name
-studio = lightning_sdk.Studio(name="hermes-1", teamspace="financial-llm-training-project")
-print(f"Studio found: {studio.name} | Status: {studio.status}")
-studio.start()
-print("Studio wake command sent.")
+api = StudioApi()
+api.start_studio(
+    studio_id=STUDIO_ID,
+    teamspace_id=TEAMSPACE_ID,
+    machine=Machine.CPU_X_4,
+    interruptible=False,
+)
+print("Studio start command sent.")
