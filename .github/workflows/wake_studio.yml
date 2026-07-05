@@ -11,6 +11,9 @@ jobs:
   wake-studio:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Wait for studio to fully shut down
         run: sleep 60
 
@@ -20,11 +23,4 @@ jobs:
           LIGHTNING_API_KEY: ${{ secrets.LIGHTNING_API_KEY }}
         run: |
           pip install lightning-sdk -q
-          python3 -c "
-import os, lightning_sdk
-os.environ['LIGHTNING_USER_ID'] = os.environ['LIGHTNING_USER_ID']
-os.environ['LIGHTNING_API_KEY'] = os.environ['LIGHTNING_API_KEY']
-studio = lightning_sdk.Studio(name='hermes-1')
-studio.start()
-print('Studio wake command sent.')
-"
+          python3 wake_studio.py
