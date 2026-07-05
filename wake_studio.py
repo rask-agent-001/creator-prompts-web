@@ -1,18 +1,57 @@
 import os
-from lightning_sdk.studio import StudioApi
-from lightning_sdk.machine import Machine
+import base64
+import warnings
+warnings.filterwarnings('ignore')
 
-# StudioApi uses LIGHTNING_API_KEY env var for auth
-# LIGHTNING_USER_ID env var is also read by the Auth class
+from lightning_sdk.lightning_cloud.openapi import ApiClient, Configuration
+from lightning_sdk.lightning_cloud.openapi.api.cloud_space_service_api import CloudSpaceServiceApi
+from lightning_sdk.lightning_cloud.openapi.models import (
+    CloudSpaceServiceStartCloudSpaceInstanceBody,
+    V1UserRequestedComputeConfig,
+)
+
+LIGHTNING_USER_ID = os.environ.get("LIGHTNING_USER_ID", "")
+LIGHTNING_API_KEY = os.environ.get("LIGHTNING_API_KEY", "")
 
 STUDIO_ID = "01kw59txn0zjg816bff2x4r07k"
 TEAMSPACE_ID = "01knbb9vda4z2m3c03apedr3ky"
 
-api = StudioApi()
-api.start_studio(
-    studio_id=STUDIO_ID,
-    teamspace_id=TEAMSPACE_ID,
-    machine=Machine.CPU_X_4,
-    interruptible=False,
+# Build Basic auth header
+credentials = f"{LIGHTNING_USER_ID}:{LIGHTNING_API_KEY}"
+auth_value = f"Basic {base64.b64encode(credentials.encode()).decode()}"
+
+# Create API client with explicit auth
+config = Configuration()
+config.host = "https://lightning.ai"
+api_client = ApiClient(configuration=config)
+api_client.set_default_header("Authorization", auth_value)
+
+# Create the API
+cloud_api = CloudSpaceServiceApi(api_client)
+
+# Build the request
+body = CloudSpaceServiceStartCloudSpaceInstanceBody(
+    compute_config=V1UserRequestedComputeConfig(
+        name="cpu_x_4",
+        spot=False,
+    )
 )
-print("Studio start command sent.")
+
+# Call the start endpoint
+try:
+    result = cloud_api.cloud_space_service_start_cloud_space_instance(
+        body,
+        project_id=TEAMSPACE_ID,
+        id=STUDIO_ID,
+    )
+    print(f"SUCCESS: Studio started")
+except Exception as e:
+    err_msg = str(e)
+    if "already has instances running" in err_msg or "already running" in err_msg.lower():
+        print("SUCCESS: Studio is already running")
+    elif "401" in err_msg or "Unauthorized" in err_msg:
+        print(f"FAILED: Authentication error - check LIGHTNING_USER_ID and LIGHTNING_API_KEY secrets")
+        exit(1)
+    else:
+        print(f"Error: {err_msg[:200]}")
+        exit(1)
