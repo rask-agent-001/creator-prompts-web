@@ -1,17 +1,28 @@
 import os
 import base64
-import warnings
-warnings.filterwarnings('ignore')
+import requests
 
-from lightning_sdk.lightning_cloud.openapi import ApiClient, Configuration
-from lightning_sdk.lightning_cloud.openapi.api.cloud_space_service_api import CloudSpaceServiceApi
-from lightning_sdk.lightning_cloud.openapi.models import (
-    CloudSpaceServiceStartCloudSpaceInstanceBody,
-    V1UserRequestedComputeConfig,
-)
+LIGHTNING_USER_ID = os.environ.get("LIGHTNING_USER_ID", "").strip()
+LIGHTNING_API_KEY = os.environ.get("LIGHTNING_API_KEY", "").strip()
 
-LIGHTNING_USER_ID = os.environ.get("LIGHTNING_USER_ID", "")
-LIGHTNING_API_KEY = os.environ.get("LIGHTNING_API_KEY", "")
+if not LIGHTNING_USER_ID or not LIGHTNING_API_KEY:
+    # Try reading from credential files
+    try:
+        with open("/tmp/lightning_user_id") as f:
+            LIGHTNING_USER_ID = f.read().strip()
+    except:
+        pass
+    try:
+        with open("/tmp/lightning_api_key") as f:
+            LIGHTNING_API_KEY = f.read().strip()
+    except:
+        pass
+
+if not LIGHTNING_USER_ID or not LIGHTNING_API_KEY:
+    print("ERROR: No credentials found - LIGHTNING_USER_ID and LIGHTNING_API_KEY are both empty")
+    print(f"USER_ID length: {len(LIGHTNING_USER_ID)}")
+    print(f"API_KEY length: {len(LIGHTNING_API_KEY)}")
+    exit(1)
 
 STUDIO_ID = "01kw59txn0zjg816bff2x4r07k"
 TEAMSPACE_ID = "01knbb9vda4z2m3c03apedr3ky"
@@ -20,38 +31,29 @@ TEAMSPACE_ID = "01knbb9vda4z2m3c03apedr3ky"
 credentials = f"{LIGHTNING_USER_ID}:{LIGHTNING_API_KEY}"
 auth_value = f"Basic {base64.b64encode(credentials.encode()).decode()}"
 
-# Create API client with explicit auth
-config = Configuration()
-config.host = "https://lightning.ai"
-api_client = ApiClient(configuration=config)
-api_client.set_default_header("Authorization", auth_value)
+headers = {
+    "Authorization": auth_value,
+    "Content-Type": "application/json",
+}
 
-# Create the API
-cloud_api = CloudSpaceServiceApi(api_client)
+url = f"https://lightning.ai/v1/projects/{TEAMSPACE_ID}/cloudspaces/{STUDIO_ID}/start"
 
-# Build the request
-body = CloudSpaceServiceStartCloudSpaceInstanceBody(
-    compute_config=V1UserRequestedComputeConfig(
-        name="cpu_x_4",
-        spot=False,
-    )
-)
+response = requests.post(url, headers=headers, json={
+    "compute_config": {
+        "name": "cpu_x_4",
+        "spot": False
+    }
+})
 
-# Call the start endpoint
-try:
-    result = cloud_api.cloud_space_service_start_cloud_space_instance(
-        body,
-        project_id=TEAMSPACE_ID,
-        id=STUDIO_ID,
-    )
-    print(f"SUCCESS: Studio started")
-except Exception as e:
-    err_msg = str(e)
-    if "already has instances running" in err_msg or "already running" in err_msg.lower():
-        print("SUCCESS: Studio is already running")
-    elif "401" in err_msg or "Unauthorized" in err_msg:
-        print(f"FAILED: Authentication error - check LIGHTNING_USER_ID and LIGHTNING_API_KEY secrets")
-        exit(1)
-    else:
-        print(f"Error: {err_msg[:200]}")
-        exit(1)
+if response.status_code in (200, 201, 202):
+    print(f"SUCCESS: Studio start command sent (HTTP {response.status_code})")
+elif response.status_code == 500 and "already has instances running" in response.text:
+    print("SUCCESS: Studio is already running (HTTP 500: already running)")
+elif response.status_code == 401:
+    print(f"FAILED: Authentication error (401)")
+    print(f"USER_ID: {LIGHTNING_USER_ID[:10]}...")
+    print(f"Response: {response.text[:200]}")
+    exit(1)
+else:
+    print(f"FAILED: HTTP {response.status_code} | {response.text[:200]}")
+    exit(1)

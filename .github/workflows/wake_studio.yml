@@ -14,13 +14,28 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Wait for studio to fully shut down
-        run: sleep 60
-
-      - name: Install lightning-sdk and wake studio
+      - name: Set up credentials
         env:
           LIGHTNING_USER_ID: ${{ secrets.LIGHTNING_USER_ID }}
           LIGHTNING_API_KEY: ${{ secrets.LIGHTNING_API_KEY }}
         run: |
+          echo "$LIGHTNING_USER_ID" > /tmp/lightning_user_id
+          echo "$LIGHTNING_API_KEY" > /tmp/lightning_api_key
+          # Verify they're not empty
+          if [ -z "$(cat /tmp/lightning_user_id)" ] || [ -z "$(cat /tmp/lightning_api_key)" ]; then
+            echo "ERROR: Empty credentials"
+            cat /tmp/lightning_user_id | xxd | head -2
+            cat /tmp/lightning_api_key | xxd | head -2
+            exit 1
+          fi
+          echo "Credentials loaded OK"
+
+      - name: Wait for studio to fully shut down
+        run: sleep 60
+
+      - name: Install lightning-sdk and wake studio
+        run: |
           pip install lightning-sdk -q
+          LIGHTNING_USER_ID=$(cat /tmp/lightning_user_id) \
+          LIGHTNING_API_KEY=$(cat /tmp/lightning_api_key) \
           python3 wake_studio.py
