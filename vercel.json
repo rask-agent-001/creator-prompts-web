@@ -1,15 +1,13 @@
 {
   "builds": [
-    {
-      "src": "app.py",
-      "use": "@vercel/python",
-      "config": { "maxLambdaSize": "10mb" }
-    }
+    {"src": "app.py", "use": "@vercel/python", "config": {"maxLambdaSize": "10mb"}},
+    {"src": "public/download.html", "use": "@vercel/static"},
+    {"src": "public/downloads/50_Viral_Faceless_TikTok_Prompts.md", "use": "@vercel/static"}
   ],
+  "env": {"FLASK_ENV": "production"},
   "routes": [
-    { "src": "/(.*)", "dest": "app.py" }
-  ],
-  "env": {
-    "FLASK_ENV": "production"
-  }
+    {"src": "/download.html", "dest": "public/download.html"},
+    {"src": "/downloads/50_Viral_Faceless_TikTok_Prompts.md", "dest": "public/downloads/50_Viral_Faceless_TikTok_Prompts.md"},
+    {"src": "/(.*)", "dest": "app.py"}
+  ]
 }
