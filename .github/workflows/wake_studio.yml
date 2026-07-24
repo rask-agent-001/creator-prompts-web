@@ -5,7 +5,7 @@ on:
     types: [studio_went_to_sleep]
 
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '0 * * * *'
 
 jobs:
   wake-studio:
@@ -21,11 +21,8 @@ jobs:
         run: |
           echo "$LIGHTNING_USER_ID" > /tmp/lightning_user_id
           echo "$LIGHTNING_API_KEY" > /tmp/lightning_api_key
-          # Verify they're not empty
           if [ -z "$(cat /tmp/lightning_user_id)" ] || [ -z "$(cat /tmp/lightning_api_key)" ]; then
             echo "ERROR: Empty credentials"
-            cat /tmp/lightning_user_id | xxd | head -2
-            cat /tmp/lightning_api_key | xxd | head -2
             exit 1
           fi
           echo "Credentials loaded OK"
@@ -36,6 +33,4 @@ jobs:
       - name: Install lightning-sdk and wake studio
         run: |
           pip install lightning-sdk -q
-          LIGHTNING_USER_ID=$(cat /tmp/lightning_user_id) \
-          LIGHTNING_API_KEY=$(cat /tmp/lightning_api_key) \
-          python3 wake_studio.py
+          LIGHTNING_USER_ID=$(cat /tmp/lightning_user_id)           LIGHTNING_API_KEY=$(cat /tmp/lightning_api_key)           python3 wake_studio.py
