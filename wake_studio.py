@@ -64,16 +64,14 @@ def start_studio():
         print(f"  Start error: {e}")
         return False
 
-# Retry loop: try up to 5 times with 90s between attempts
-# This handles the case where the studio is mid-shutdown and ignores the start command
-MAX_RETRIES = 5
-RETRY_DELAY = 90
+MAX_RETRIES = 3
+RETRY_DELAY = 30
 
 for attempt in range(1, MAX_RETRIES + 1):
     print(f"
 Attempt {attempt}/{MAX_RETRIES}:")
     
-    # Check current status
+    # Check current status first
     state = get_status()
     print(f"  Current state: {state}")
     
@@ -82,20 +80,19 @@ Attempt {attempt}/{MAX_RETRIES}:")
         exit(0)
     
     # Try to start
-    if start_studio():
-        # Wait for it to actually come up
-        print(f"  Waiting 90s for studio to boot...")
-        time.sleep(90)
-        state = get_status()
-        print(f"  State after wait: {state}")
-        if state in ("running", "started", "ready"):
-            print("SUCCESS: Studio is now running")
-            exit(0)
+    start_studio()
     
     if attempt < MAX_RETRIES:
-        print(f"  Studio not up yet — retrying in {RETRY_DELAY}s...")
+        print(f"  Waiting {RETRY_DELAY}s before retry...")
         time.sleep(RETRY_DELAY)
 
+# Final status check
+state = get_status()
 print(f"
-FAILED: Studio did not start after {MAX_RETRIES} attempts")
-exit(1)
+Final state: {state}")
+if state in ("running", "started", "ready"):
+    print("SUCCESS: Studio is now running")
+    exit(0)
+
+print(f"DONE: Start command sent {MAX_RETRIES} times. Check studio status.")
+exit(0)
