@@ -1,12 +1,12 @@
 import os
 import base64
+import time
 import requests
 
 LIGHTNING_USER_ID = os.environ.get("LIGHTNING_USER_ID", "").strip()
 LIGHTNING_API_KEY = os.environ.get("LIGHTNING_API_KEY", "").strip()
 
 if not LIGHTNING_USER_ID or not LIGHTNING_API_KEY:
-    # Try reading from credential files
     try:
         with open("/tmp/lightning_user_id") as f:
             LIGHTNING_USER_ID = f.read().strip()
@@ -19,15 +19,12 @@ if not LIGHTNING_USER_ID or not LIGHTNING_API_KEY:
         pass
 
 if not LIGHTNING_USER_ID or not LIGHTNING_API_KEY:
-    print("ERROR: No credentials found - LIGHTNING_USER_ID and LIGHTNING_API_KEY are both empty")
-    print(f"USER_ID length: {len(LIGHTNING_USER_ID)}")
-    print(f"API_KEY length: {len(LIGHTNING_API_KEY)}")
+    print("ERROR: No credentials found")
     exit(1)
 
 STUDIO_ID = "01kw59txn0zjg816bff2x4r07k"
 TEAMSPACE_ID = "01knbb9vda4z2m3c03apedr3ky"
 
-# Build Basic auth header
 credentials = f"{LIGHTNING_USER_ID}:{LIGHTNING_API_KEY}"
 auth_value = f"Basic {base64.b64encode(credentials.encode()).decode()}"
 
@@ -36,24 +33,69 @@ headers = {
     "Content-Type": "application/json",
 }
 
-url = f"https://lightning.ai/v1/projects/{TEAMSPACE_ID}/cloudspaces/{STUDIO_ID}/start"
+start_url = f"https://lightning.ai/v1/projects/{TEAMSPACE_ID}/cloudspaces/{STUDIO_ID}/start"
+status_url = f"https://lightning.ai/v1/projects/{TEAMSPACE_ID}/cloudspaces/{STUDIO_ID}"
 
-response = requests.post(url, headers=headers, json={
-    "compute_config": {
-        "name": "cpu_x_4",
-        "spot": False
-    }
-})
+def get_status():
+    try:
+        r = requests.get(status_url, headers=headers, timeout=30)
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("state", data.get("status", "unknown"))
+        return f"http_{r.status_code}"
+    except Exception as e:
+        return f"error: {e}"
 
-if response.status_code in (200, 201, 202):
-    print(f"SUCCESS: Studio start command sent (HTTP {response.status_code})")
-elif response.status_code == 500 and "already has instances running" in response.text:
-    print("SUCCESS: Studio is already running (HTTP 500: already running)")
-elif response.status_code == 401:
-    print(f"FAILED: Authentication error (401)")
-    print(f"USER_ID: {LIGHTNING_USER_ID[:10]}...")
-    print(f"Response: {response.text[:200]}")
-    exit(1)
-else:
-    print(f"FAILED: HTTP {response.status_code} | {response.text[:200]}")
-    exit(1)
+def start_studio():
+    try:
+        r = requests.post(start_url, headers=headers, json={
+            "compute_config": {"name": "cpu_x_4", "spot": False}
+        }, timeout=30)
+        if r.status_code in (200, 201, 202):
+            print(f"  Start command sent (HTTP {r.status_code})")
+            return True
+        elif r.status_code == 500 and "already" in r.text.lower():
+            print(f"  Already running (HTTP 500)")
+            return True
+        else:
+            print(f"  Start failed: HTTP {r.status_code} | {r.text[:150]}")
+            return False
+    except Exception as e:
+        print(f"  Start error: {e}")
+        return False
+
+# Retry loop: try up to 5 times with 90s between attempts
+# This handles the case where the studio is mid-shutdown and ignores the start command
+MAX_RETRIES = 5
+RETRY_DELAY = 90
+
+for attempt in range(1, MAX_RETRIES + 1):
+    print(f"
+Attempt {attempt}/{MAX_RETRIES}:")
+    
+    # Check current status
+    state = get_status()
+    print(f"  Current state: {state}")
+    
+    if state in ("running", "started", "ready"):
+        print("SUCCESS: Studio is already running")
+        exit(0)
+    
+    # Try to start
+    if start_studio():
+        # Wait for it to actually come up
+        print(f"  Waiting 90s for studio to boot...")
+        time.sleep(90)
+        state = get_status()
+        print(f"  State after wait: {state}")
+        if state in ("running", "started", "ready"):
+            print("SUCCESS: Studio is now running")
+            exit(0)
+    
+    if attempt < MAX_RETRIES:
+        print(f"  Studio not up yet — retrying in {RETRY_DELAY}s...")
+        time.sleep(RETRY_DELAY)
+
+print(f"
+FAILED: Studio did not start after {MAX_RETRIES} attempts")
+exit(1)
