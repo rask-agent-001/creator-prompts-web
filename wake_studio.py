@@ -34,35 +34,6 @@ headers = {
 }
 
 start_url = "https://lightning.ai/v1/projects/" + TEAMSPACE_ID + "/cloudspaces/" + STUDIO_ID + "/start"
-status_url = "https://lightning.ai/v1/projects/" + TEAMSPACE_ID + "/cloudspaces/" + STUDIO_ID
-
-def get_status():
-    try:
-        r = requests.get(status_url, headers=headers, timeout=30)
-        if r.status_code == 200:
-            data = r.json()
-            return data.get("state", data.get("status", "unknown"))
-        return "http_" + str(r.status_code)
-    except Exception as e:
-        return "error: " + str(e)
-
-def start_studio():
-    try:
-        r = requests.post(start_url, headers=headers, json={
-            "compute_config": {"name": "cpu_x_4", "spot": False}
-        }, timeout=30)
-        if r.status_code in (200, 201, 202):
-            print("  Start command sent (HTTP " + str(r.status_code) + ")")
-            return True
-        elif r.status_code == 500 and "already" in r.text.lower():
-            print("  Already running (HTTP 500)")
-            return True
-        else:
-            print("  Start failed: HTTP " + str(r.status_code) + " | " + r.text[:150])
-            return False
-    except Exception as e:
-        print("  Start error: " + str(e))
-        return False
 
 MAX_RETRIES = 3
 RETRY_DELAY = 30
@@ -70,27 +41,19 @@ RETRY_DELAY = 30
 for attempt in range(1, MAX_RETRIES + 1):
     print("")
     print("Attempt " + str(attempt) + "/" + str(MAX_RETRIES) + ":")
+    print("  Sending start command...")
 
-    state = get_status()
-    print("  Current state: " + str(state))
-
-    if state in ("running", "started", "ready"):
-        print("SUCCESS: Studio is already running")
-        exit(0)
-
-    start_studio()
+    try:
+        r = requests.post(start_url, headers=headers, json={
+            "compute_config": {"name": "cpu_x_4", "spot": False}
+        }, timeout=30)
+        print("  HTTP " + str(r.status_code) + " | " + r.text[:150])
+    except Exception as e:
+        print("  Error: " + str(e))
 
     if attempt < MAX_RETRIES:
         print("  Waiting " + str(RETRY_DELAY) + "s before retry...")
         time.sleep(RETRY_DELAY)
 
-# Final status check
-state = get_status()
 print("")
-print("Final state: " + str(state))
-if state in ("running", "started", "ready"):
-    print("SUCCESS: Studio is now running")
-    exit(0)
-
-print("DONE: Start command sent " + str(MAX_RETRIES) + " times. Check studio status.")
-exit(0)
+print("DONE: Start command sent " + str(MAX_RETRIES) + " times.")
