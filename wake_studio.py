@@ -34,15 +34,21 @@ headers = {
 }
 
 start_url = "https://lightning.ai/v1/projects/" + TEAMSPACE_ID + "/cloudspaces/" + STUDIO_ID + "/start"
+status_url = "https://lightning.ai/v1/projects/" + TEAMSPACE_ID + "/cloudspaces/" + STUDIO_ID
 
-MAX_RETRIES = 3
-RETRY_DELAY = 30
 
-for attempt in range(1, MAX_RETRIES + 1):
-    print("")
-    print("Attempt " + str(attempt) + "/" + str(MAX_RETRIES) + ":")
-    print("  Sending start command...")
+def get_status():
+    try:
+        r = requests.get(status_url, headers=headers, timeout=30)
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("state", data.get("status", "unknown"))
+        return "http_" + str(r.status_code)
+    except Exception as e:
+        return "error: " + str(e)
 
+
+def start_studio():
     try:
         r = requests.post(start_url, headers=headers, json={
             "compute_config": {"name": "cpu_x_4", "spot": False}
@@ -51,9 +57,28 @@ for attempt in range(1, MAX_RETRIES + 1):
     except Exception as e:
         print("  Error: " + str(e))
 
+
+MAX_RETRIES = 5
+RETRY_DELAY = 90
+
+for attempt in range(1, MAX_RETRIES + 1):
+    print("")
+    print("Attempt " + str(attempt) + "/" + str(MAX_RETRIES) + ":")
+
+    start_studio()
+
     if attempt < MAX_RETRIES:
-        print("  Waiting " + str(RETRY_DELAY) + "s before retry...")
+        print("  Waiting " + str(RETRY_DELAY) + "s...")
         time.sleep(RETRY_DELAY)
 
+        state = get_status()
+        print("  Status: " + str(state))
+
+        if state in ("running", "started", "ready"):
+            print("SUCCESS: Studio is running")
+            exit(0)
+
+        print("  Studio not running yet — retrying...")
+
 print("")
-print("DONE: Start command sent " + str(MAX_RETRIES) + " times.")
+print("DONE: " + str(MAX_RETRIES) + " start commands sent.")
