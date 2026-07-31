@@ -58,27 +58,39 @@ def start_studio():
         print("  Error: " + str(e))
 
 
-MAX_RETRIES = 5
-RETRY_DELAY = 90
-
-for attempt in range(1, MAX_RETRIES + 1):
+# 3 unconditional starts, 60s apart
+for attempt in range(1, 4):
     print("")
-    print("Attempt " + str(attempt) + "/" + str(MAX_RETRIES) + ":")
+    print("Attempt " + str(attempt) + "/3 (unconditional start):")
+    start_studio()
+    if attempt < 3:
+        print("  Waiting 60s...")
+        time.sleep(60)
 
+# 2 check + start, 90s apart
+for attempt in range(1, 3):
+    print("")
+    print("Attempt " + str(attempt + 3) + "/5 (check + start):")
+
+    state = get_status()
+    print("  Status: " + str(state))
+
+    if state in ("running", "started", "ready"):
+        print("SUCCESS: Studio is running")
+        exit(0)
+
+    print("  Not running — sending start...")
     start_studio()
 
-    if attempt < MAX_RETRIES:
-        print("  Waiting " + str(RETRY_DELAY) + "s...")
-        time.sleep(RETRY_DELAY)
+    if attempt < 2:
+        print("  Waiting 90s...")
+        time.sleep(90)
 
-        state = get_status()
-        print("  Status: " + str(state))
-
-        if state in ("running", "started", "ready"):
-            print("SUCCESS: Studio is running")
-            exit(0)
-
-        print("  Studio not running yet — retrying...")
-
+# Final check
+state = get_status()
 print("")
-print("DONE: " + str(MAX_RETRIES) + " start commands sent.")
+print("Final status: " + str(state))
+if state in ("running", "started", "ready"):
+    print("SUCCESS: Studio is running")
+else:
+    print("DONE: 5 start commands sent. Studio may still be waking up.")
